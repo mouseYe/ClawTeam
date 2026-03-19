@@ -66,6 +66,8 @@ class SubprocessBackend(SpawnBackend):
                 final_command.append("--dangerously-skip-permissions")
             elif _is_codex_command(normalized_command):
                 final_command.append("--dangerously-bypass-approvals-and-sandbox")
+            elif _is_gemini_command(normalized_command):
+                final_command.append("--yolo")
         if _is_nanobot_command(normalized_command):
             if cwd and not _command_has_workspace_arg(normalized_command):
                 final_command.extend(["-w", cwd])
@@ -141,6 +143,14 @@ def _is_nanobot_command(command: list[str]) -> bool:
         return False
     cmd = command[0].rsplit("/", 1)[-1]
     return cmd == "nanobot"
+
+
+def _is_gemini_command(command: list[str]) -> bool:
+    """Check if the command is a Gemini CLI invocation."""
+    if not command:
+        return False
+    cmd = command[0].rsplit("/", 1)[-1]
+    return cmd == "gemini"
 
 
 def _command_has_workspace_arg(command: list[str]) -> bool:

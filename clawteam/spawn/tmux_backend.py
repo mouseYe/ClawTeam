@@ -34,6 +34,7 @@ class TmuxBackend(SpawnBackend):
         env: dict[str, str] | None = None,
         cwd: str | None = None,
         skip_permissions: bool = False,
+        system_prompt: str | None = None,
     ) -> str:
         if not shutil.which("tmux"):
             return "Error: tmux not installed"
@@ -72,6 +73,8 @@ class TmuxBackend(SpawnBackend):
                 final_command.append("--dangerously-skip-permissions")
             elif _is_codex_command(command):
                 final_command.append("--dangerously-bypass-approvals-and-sandbox")
+        if system_prompt and _is_claude_command(command):
+            final_command.extend(["--append-system-prompt", system_prompt])
 
         # Codex accepts prompt as a positional argument directly
         if prompt and _is_codex_command(command):

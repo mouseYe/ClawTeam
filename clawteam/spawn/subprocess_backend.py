@@ -27,9 +27,14 @@ class SubprocessBackend(SpawnBackend):
         env: dict[str, str] | None = None,
         cwd: str | None = None,
         skip_permissions: bool = False,
+        system_prompt: str | None = None,
     ) -> str:
         spawn_env = os.environ.copy()
         clawteam_bin = resolve_clawteam_executable()
+        # Ensure UTF-8 locale so Chinese and other non-ASCII characters in
+        # prompts are not mangled when passed through the shell.
+        spawn_env.setdefault("LANG", "en_US.UTF-8")
+        spawn_env.setdefault("LC_CTYPE", "UTF-8")
         spawn_env.update({
             "CLAWTEAM_AGENT_ID": agent_id,
             "CLAWTEAM_AGENT_NAME": agent_name,
@@ -59,6 +64,8 @@ class SubprocessBackend(SpawnBackend):
                 final_command.append("--dangerously-skip-permissions")
             elif _is_codex_command(command):
                 final_command.append("--dangerously-bypass-approvals-and-sandbox")
+        if system_prompt and _is_claude_command(command):
+            final_command.extend(["--append-system-prompt", system_prompt])
         if prompt:
             if _is_codex_command(command):
                 # Codex accepts prompt as positional argument

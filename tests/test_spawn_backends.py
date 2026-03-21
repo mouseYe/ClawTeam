@@ -149,3 +149,141 @@ def test_resolve_clawteam_executable_accepts_relative_path_with_explicit_directo
 
     assert resolve_clawteam_executable() == str(relative_bin.resolve())
     assert build_spawn_path("/usr/bin:/bin").startswith(f"{relative_bin.parent.resolve()}:")
+
+
+def test_subprocess_backend_injects_system_prompt_for_claude(monkeypatch, tmp_path):
+    """--append-system-prompt is added to the command when system_prompt is given."""
+    clawteam_bin = tmp_path / "bin" / "clawteam"
+    clawteam_bin.parent.mkdir(parents=True)
+    clawteam_bin.write_text("#!/bin/sh\n")
+    monkeypatch.setattr(sys, "argv", [str(clawteam_bin)])
+
+    captured: dict[str, object] = {}
+
+    def fake_popen(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["env"] = kwargs["env"]
+        return DummyProcess()
+
+    monkeypatch.setattr("clawteam.spawn.subprocess_backend.subprocess.Popen", fake_popen)
+    monkeypatch.setattr("clawteam.spawn.registry.register_agent", lambda **_: None)
+
+    backend = SubprocessBackend()
+    backend.spawn(
+        command=["claude"],
+        agent_name="worker1",
+        agent_id="agent-1",
+        agent_type="general-purpose",
+        team_name="demo-team",
+        prompt="do work",
+        skip_permissions=True,
+        system_prompt="You are an expert coder.",
+    )
+
+    cmd = captured["cmd"]
+    assert "--append-system-prompt" in cmd
+    assert "You are an expert coder." in cmd
+    # system prompt must appear before -p
+    assert cmd.index("--append-system-prompt") < cmd.index(" -p ")
+
+
+def test_subprocess_backend_skips_system_prompt_for_non_claude(monkeypatch, tmp_path):
+    """--append-system-prompt is NOT added for non-claude commands (e.g. codex)."""
+    clawteam_bin = tmp_path / "bin" / "clawteam"
+    clawteam_bin.parent.mkdir(parents=True)
+    clawteam_bin.write_text("#!/bin/sh\n")
+    monkeypatch.setattr(sys, "argv", [str(clawteam_bin)])
+
+    captured: dict[str, object] = {}
+
+    def fake_popen(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return DummyProcess()
+
+    monkeypatch.setattr("clawteam.spawn.subprocess_backend.subprocess.Popen", fake_popen)
+    monkeypatch.setattr("clawteam.spawn.registry.register_agent", lambda **_: None)
+
+    backend = SubprocessBackend()
+    backend.spawn(
+        command=["codex"],
+        agent_name="worker1",
+        agent_id="agent-1",
+        agent_type="general-purpose",
+        team_name="demo-team",
+        prompt="do work",
+        system_prompt="some system text",
+    )
+
+    assert "--append-system-prompt" not in captured["cmd"]
+
+
+def test_subprocess_backend_sets_utf8_locale(monkeypatch, tmp_path):
+    """LANG and LC_CTYPE are set to UTF-8 so Chinese prompts are not mangled."""
+    clawteam_bin = tmp_path / "bin" / "clawteam"
+    clawteam_bin.parent.mkdir(parents=True)
+    clawteam_bin.write_text("#!/bin/sh\n")
+    monkeypatch.setattr(sys, "argv", [str(clawteam_bin)])
+    monkeypatch.delenv("LANG", raising=False)
+    monkeypatch.delenv("LC_CTYPE", raising=False)
+
+    captured: dict[str, object] = {}
+
+    def fake_popen(cmd, **kwargs):
+        captured["env"] = kwargs["env"]
+        return DummyProcess()
+
+    monkeypatch.setattr("clawteam.spawn.subprocess_backend.subprocess.Popen", fake_popen)
+    monkeypatch.setattr("clawteam.spawn.registry.register_agent", lambda **_: None)
+
+    backend = SubprocessBackend()
+    backend.spawn(
+        command=["claude"],
+        agent_name="worker1",
+        agent_id="agent-1",
+        agent_type="general-purpose",
+        team_name="demo-team",
+        prompt="使用技能",
+    )
+
+    env = captured["env"]
+    assert env.get("LANG") == "en_US.UTF-8"
+    assert env.get("LC_CTYPE") == "UTF-8"
+
+
+def test_load_skill_content_directory_format(tmp_path, monkeypatch):
+    """Skills stored as directories with SKILL.md are loaded correctly."""
+    from clawteam.cli.commands import _load_skill_content
+
+    skills_root = tmp_path / ".claude" / "skills"
+    skill_dir = skills_root / "my-skill"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("skill content here", encoding="utf-8")
+
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+
+    result = _load_skill_content("my-skill")
+    assert result == "skill content here"
+
+
+def test_load_skill_content_single_file_format(tmp_path, monkeypatch):
+    """Skills stored as a single .md file are loaded correctly."""
+    from clawteam.cli.commands import _load_skill_content
+
+    skills_root = tmp_path / ".claude" / "skills"
+    skills_root.mkdir(parents=True)
+    (skills_root / "gsd-health.md").write_text("# GSD Health\ncheck it", encoding="utf-8")
+
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+
+    result = _load_skill_content("gsd-health")
+    assert result == "# GSD Health\ncheck it"
+
+
+def test_load_skill_content_returns_none_for_missing(tmp_path, monkeypatch):
+    """Returns None when a skill does not exist."""
+    from clawteam.cli.commands import _load_skill_content
+
+    (tmp_path / ".claude" / "skills").mkdir(parents=True)
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+
+    assert _load_skill_content("nonexistent") is None

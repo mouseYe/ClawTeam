@@ -406,10 +406,22 @@ If the agent CLI does not run correctly by itself, `clawteam spawn` will not fix
 
 ### ⚡ Option 1: Let the Agent Drive (Recommended)
 
-ClawTeam ships with a **Claude Code skill** that auto-activates. Just install and prompt:
+ClawTeam ships with a reusable skill in `skills/clawteam/`.
+
+**Claude Code**
+
+Install the skill into `~/.claude/skills/clawteam`, then prompt:
 
 ```
 "Build a web app. Use clawteam to split the work across multiple agents."
+```
+
+**Codex**
+
+Install the same skill into `$CODEX_HOME/skills/clawteam` (typically `~/.codex/skills/clawteam`), then prompt:
+
+```
+Use $clawteam to split this task across multiple agents and coordinate the team to completion.
 ```
 
 The agent will automatically create a team, spawn workers, assign tasks, and coordinate — using `clawteam` CLI commands under the hood.
@@ -589,7 +601,7 @@ Vertex, use `profile` + `preset` and then spawn with `--profile`.
 | 🌐 **Cross-Machine** | Shared filesystem (NFS/SSHFS) or P2P transport for distributed teams |
 | 👥 **Multi-User** | Namespace agents by user — multiple humans can share a team |
 | ⚙️ **Configuration** | Persistent config: env var > config file > default priority |
-| 🔌 **Claude Code Skill** | Auto-triggers when users ask about multi-agent coordination |
+| 🔌 **Agent Skill** | Reusable skill entry for Claude Code and Codex workflows |
 
 ---
 

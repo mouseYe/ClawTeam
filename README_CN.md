@@ -355,10 +355,22 @@ nanobot --help
 
 ### ⚡ 方式一：让 Agent 驱动（推荐）
 
-ClawTeam 内置 **Claude Code 技能**，安装后自动激活。直接告诉你的 Agent：
+ClawTeam 自带一个可复用的 skill，位于 `skills/clawteam/`。
+
+**Claude Code**
+
+把这个 skill 安装到 `~/.claude/skills/clawteam`，然后直接告诉你的 Agent：
 
 ```
 "帮我做一个 Web 应用。用 clawteam 把工作拆分给多个 Agent。"
+```
+
+**Codex**
+
+把同一个 skill 安装到 `$CODEX_HOME/skills/clawteam`（通常是 `~/.codex/skills/clawteam`），然后提示：
+
+```
+用 $clawteam 把这个任务拆成多 Agent 团队，协调执行直到完成。
 ```
 
 Agent 会自动使用 `clawteam` 命令创建团队、启动 Worker、分配任务、协调工作。
